@@ -150,6 +150,12 @@ class mtf:
         :return: WFE Aberrations MTF
         """
         #TODO
+        Hwfe = np.exp(
+            -fr2D * (1.0 - fr2D) * (
+                    kLF * (wLF / lambd) ** 2
+                    + kHF * (wHF / lambd) ** 2
+            )
+        )
         return Hwfe
 
     def mtfDetector(self,fn2D):
@@ -159,6 +165,7 @@ class mtf:
         :return: detector MTF
         """
         #TODO
+        Hdet = np.abs(np.sinc(fn2D))
         return Hdet
 
     def mtfSmearing(self, fnAlt, ncolumns, ksmear):
@@ -170,6 +177,16 @@ class mtf:
         :return: Smearing MTF
         """
         #TODO
+        # 1D MTF in ALT direction
+        HsmearAlt = np.sinc(ksmear * fnAlt)
+
+        # Repeat the ALT MTF in the ACT direction
+        # Result shape: nlines x ncolumns
+        Hsmear = repmat(
+            HsmearAlt.reshape(-1, 1),
+            1,
+            ncolumns
+        )
         return Hsmear
 
     def mtfMotion(self, fn2D, kmotion):
@@ -180,6 +197,7 @@ class mtf:
         :return: detector MTF
         """
         #TODO
+        Hmotion = np.sinc(kmotion * fn2D)
         return Hmotion
 
     def plotMtf(self,Hdiff, Hdefoc, Hwfe, Hdet, Hsmear, Hmotion, Hsys, nlines, ncolumns, fnAct, fnAlt, directory, band):
@@ -202,4 +220,171 @@ class mtf:
         """
         #TODO
 
+ialt = nlines // 2
+iact = ncolumns // 2
+
+
+mask_act = fnAct >= 0
+mask_alt = fnAlt >= 0
+
+plt.figure(figsize=(10, 6))
+
+plt.plot(
+    fnAct[mask_act],
+    Hdiff[ialt, mask_act],
+    label="Diffraction"
+)
+
+plt.plot(
+    fnAct[mask_act],
+    Hdefoc[ialt, mask_act],
+    label="Defocus"
+)
+
+plt.plot(
+    fnAct[mask_act],
+    Hwfe[ialt, mask_act],
+    label="WFE"
+)
+
+plt.plot(
+    fnAct[mask_act],
+    Hdet[ialt, mask_act],
+    label="Detector"
+)
+
+plt.plot(
+    fnAct[mask_act],
+    Hsmear[ialt, mask_act],
+    label="Smearing"
+)
+
+plt.plot(
+    fnAct[mask_act],
+    Hmotion[ialt, mask_act],
+    label="Motion"
+)
+
+plt.plot(
+    fnAct[mask_act],
+    Hsys[ialt, mask_act],
+    label="System",
+    linewidth=2
+)
+
+
+plt.axvline(
+    0.5,
+    linestyle="--",
+    label="Nyquist"
+)
+
+plt.title(f"System MTF - ACT cut ({band})")
+plt.xlabel("Normalised spatial frequency [-]")
+plt.ylabel("MTF")
+
+plt.xlim(0, 0.5)
+plt.ylim(0, 1.05)
+
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+
+act_figure = os.path.join(
+    directory,
+    f"system_mtf_ACT_{band}.png"
+)
+
+plt.savefig(
+    act_figure,
+    dpi=200,
+    bbox_inches="tight"
+)
+
+plt.close()
+
+
+plt.figure(figsize=(10, 6))
+
+plt.plot(
+    fnAlt[mask_alt],
+    Hdiff[mask_alt, iact],
+    label="Diffraction"
+)
+
+plt.plot(
+    fnAlt[mask_alt],
+    Hdefoc[mask_alt, iact],
+    label="Defocus"
+)
+
+plt.plot(
+    fnAlt[mask_alt],
+    Hwfe[mask_alt, iact],
+    label="WFE"
+)
+
+plt.plot(
+    fnAlt[mask_alt],
+    Hdet[mask_alt, iact],
+    label="Detector"
+)
+
+plt.plot(
+    fnAlt[mask_alt],
+    Hsmear[mask_alt, iact],
+    label="Smearing"
+)
+
+plt.plot(
+    fnAlt[mask_alt],
+    Hmotion[mask_alt, iact],
+    label="Motion"
+)
+
+plt.plot(
+    fnAlt[mask_alt],
+    Hsys[mask_alt, iact],
+    label="System",
+    linewidth=2
+)
+
+plt.axvline(
+    0.5,
+    linestyle="--",
+    label="Nyquist"
+)
+
+plt.title(f"System MTF - ALT cut ({band})")
+plt.xlabel("Normalised spatial frequency [-]")
+plt.ylabel("MTF")
+
+plt.xlim(0, 0.5)
+plt.ylim(0, 1.05)
+
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+
+alt_figure = os.path.join(
+    directory,
+    f"system_mtf_ALT_{band}.png"
+)
+
+plt.savefig(
+    alt_figure,
+    dpi=200,
+    bbox_inches="tight"
+)
+
+plt.close()
+
+plotMat2D(
+    Hsys,
+    f"System MTF for {band}",
+    "ACT",
+    "ALT",
+    directory,
+    f"system_mtf_2d_{band}"
+)
 
