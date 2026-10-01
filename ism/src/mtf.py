@@ -69,7 +69,7 @@ class mtf:
 
         # Calculate the System MTF
         self.logger.debug("Calculation of the Sysmtem MTF by multiplying the different contributors")
-        Hsys = 1 # dummy
+        Hsys = Hdiff * Hwfe * Hdefoc * Hdet * Hsmear * Hmotion # dummy
 
         # Plot cuts ACT/ALT of the MTF
         self.plotMtf(Hdiff, Hdefoc, Hwfe, Hdet, Hsmear, Hmotion, Hsys, nlines, ncolumns, fnAct, fnAlt, directory, band)
@@ -200,7 +200,8 @@ class mtf:
         Hmotion = np.sinc(kmotion * fn2D)
         return Hmotion
 
-    def plotMtf(self,Hdiff, Hdefoc, Hwfe, Hdet, Hsmear, Hmotion, Hsys, nlines, ncolumns, fnAct, fnAlt, directory, band):
+    def plotMtf(self, Hdiff, Hdefoc, Hwfe, Hdet, Hsmear, Hmotion, Hsys, nlines, ncolumns, fnAct, fnAlt, directory,
+                band):
         """
         Plotting the system MTF and all of its contributors
         :param Hdiff: Diffraction MTF
@@ -218,173 +219,135 @@ class mtf:
         :param band: band
         :return: N/A
         """
-        #TODO
+        # TODO
+        # Central positions
+        ialt = nlines // 2
+        iact = ncolumns // 2
 
-ialt = nlines // 2
-iact = ncolumns // 2
+        # We only plot positive frequencies, as in the ATBD
+        maskAct = fnAct >= 0
+        maskAlt = fnAlt >= 0
 
+        # ---------------------------------------------------------
+        # ACT cut
+        # ---------------------------------------------------------
 
-mask_act = fnAct >= 0
-mask_alt = fnAlt >= 0
+        plt.figure(figsize=(10, 6))
 
-plt.figure(figsize=(10, 6))
+        plt.plot(fnAct[maskAct], Hdiff[ialt, maskAct],
+                 label="Diffraction MTF")
 
-plt.plot(
-    fnAct[mask_act],
-    Hdiff[ialt, mask_act],
-    label="Diffraction"
-)
+        plt.plot(fnAct[maskAct], Hdefoc[ialt, maskAct],
+                 label="Defocus MTF")
 
-plt.plot(
-    fnAct[mask_act],
-    Hdefoc[ialt, mask_act],
-    label="Defocus"
-)
+        plt.plot(fnAct[maskAct], Hwfe[ialt, maskAct],
+                 label="WFE MTF")
 
-plt.plot(
-    fnAct[mask_act],
-    Hwfe[ialt, mask_act],
-    label="WFE"
-)
+        plt.plot(fnAct[maskAct], Hdet[ialt, maskAct],
+                 label="Detector MTF")
 
-plt.plot(
-    fnAct[mask_act],
-    Hdet[ialt, mask_act],
-    label="Detector"
-)
+        plt.plot(fnAct[maskAct], Hsmear[ialt, maskAct],
+                 label="Smearing MTF")
 
-plt.plot(
-    fnAct[mask_act],
-    Hsmear[ialt, mask_act],
-    label="Smearing"
-)
+        plt.plot(fnAct[maskAct], Hmotion[ialt, maskAct],
+                 label="Motion MTF")
 
-plt.plot(
-    fnAct[mask_act],
-    Hmotion[ialt, mask_act],
-    label="Motion"
-)
+        plt.plot(fnAct[maskAct], Hsys[ialt, maskAct],
+                 label="System MTF",
+                 linewidth=2)
 
-plt.plot(
-    fnAct[mask_act],
-    Hsys[ialt, mask_act],
-    label="System",
-    linewidth=2
-)
+        # Nyquist frequency in normalised units
+        plt.axvline(
+            x=0.5,
+            linestyle="--",
+            label="Nyquist"
+        )
 
+        plt.title("System MTF - slice ACT")
+        plt.xlabel("Spatial frequency [f/(1/w)] [-]")
+        plt.ylabel("MTF")
 
-plt.axvline(
-    0.5,
-    linestyle="--",
-    label="Nyquist"
-)
+        plt.xlim(0, 0.5)
+        plt.ylim(0, 1.05)
 
-plt.title(f"System MTF - ACT cut ({band})")
-plt.xlabel("Normalised spatial frequency [-]")
-plt.ylabel("MTF")
+        plt.grid(True)
+        plt.legend()
+        plt.tight_layout()
 
-plt.xlim(0, 0.5)
-plt.ylim(0, 1.05)
+        plt.savefig(
+            os.path.join(
+                directory,
+                "system_mtf_ACT_" + band + ".png"
+            ),
+            dpi=200
+        )
 
-plt.grid(True)
-plt.legend()
-plt.tight_layout()
+        plt.close()
 
-act_figure = os.path.join(
-    directory,
-    f"system_mtf_ACT_{band}.png"
-)
+        # ---------------------------------------------------------
+        # ALT cut
+        # ---------------------------------------------------------
 
-plt.savefig(
-    act_figure,
-    dpi=200,
-    bbox_inches="tight"
-)
+        plt.figure(figsize=(10, 6))
 
-plt.close()
+        plt.plot(fnAlt[maskAlt], Hdiff[maskAlt, iact],
+                 label="Diffraction MTF")
 
+        plt.plot(fnAlt[maskAlt], Hdefoc[maskAlt, iact],
+                 label="Defocus MTF")
 
-plt.figure(figsize=(10, 6))
+        plt.plot(fnAlt[maskAlt], Hwfe[maskAlt, iact],
+                 label="WFE MTF")
 
-plt.plot(
-    fnAlt[mask_alt],
-    Hdiff[mask_alt, iact],
-    label="Diffraction"
-)
+        plt.plot(fnAlt[maskAlt], Hdet[maskAlt, iact],
+                 label="Detector MTF")
 
-plt.plot(
-    fnAlt[mask_alt],
-    Hdefoc[mask_alt, iact],
-    label="Defocus"
-)
+        plt.plot(fnAlt[maskAlt], Hsmear[maskAlt, iact],
+                 label="Smearing MTF")
 
-plt.plot(
-    fnAlt[mask_alt],
-    Hwfe[mask_alt, iact],
-    label="WFE"
-)
+        plt.plot(fnAlt[maskAlt], Hmotion[maskAlt, iact],
+                 label="Motion MTF")
 
-plt.plot(
-    fnAlt[mask_alt],
-    Hdet[mask_alt, iact],
-    label="Detector"
-)
+        plt.plot(fnAlt[maskAlt], Hsys[maskAlt, iact],
+                 label="System MTF",
+                 linewidth=2)
 
-plt.plot(
-    fnAlt[mask_alt],
-    Hsmear[mask_alt, iact],
-    label="Smearing"
-)
+        plt.axvline(
+            x=0.5,
+            linestyle="--",
+            label="Nyquist"
+        )
 
-plt.plot(
-    fnAlt[mask_alt],
-    Hmotion[mask_alt, iact],
-    label="Motion"
-)
+        plt.title("System MTF - slice ALT")
+        plt.xlabel("Spatial frequency [f/(1/w)] [-]")
+        plt.ylabel("MTF")
 
-plt.plot(
-    fnAlt[mask_alt],
-    Hsys[mask_alt, iact],
-    label="System",
-    linewidth=2
-)
+        plt.xlim(0, 0.5)
+        plt.ylim(0, 1.05)
 
-plt.axvline(
-    0.5,
-    linestyle="--",
-    label="Nyquist"
-)
+        plt.grid(True)
+        plt.legend()
+        plt.tight_layout()
 
-plt.title(f"System MTF - ALT cut ({band})")
-plt.xlabel("Normalised spatial frequency [-]")
-plt.ylabel("MTF")
+        plt.savefig(
+            os.path.join(
+                directory,
+                "system_mtf_ALT_" + band + ".png"
+            ),
+            dpi=200
+        )
 
-plt.xlim(0, 0.5)
-plt.ylim(0, 1.05)
+        plt.close()
 
-plt.grid(True)
-plt.legend()
-plt.tight_layout()
+        # ---------------------------------------------------------
+        # 2D System MTF
+        # ---------------------------------------------------------
 
-alt_figure = os.path.join(
-    directory,
-    f"system_mtf_ALT_{band}.png"
-)
-
-plt.savefig(
-    alt_figure,
-    dpi=200,
-    bbox_inches="tight"
-)
-
-plt.close()
-
-plotMat2D(
-    Hsys,
-    f"System MTF for {band}",
-    "ACT",
-    "ALT",
-    directory,
-    f"system_mtf_2d_{band}"
-)
-
+        plotMat2D(
+            Hsys,
+            "System MTF for " + band,
+            "ACT",
+            "ALT",
+            directory,
+            "system_mtf_2d_" + band
+        )

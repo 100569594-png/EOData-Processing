@@ -86,7 +86,7 @@ class detectionPhase(initIsm):
             title_str = 'TOA after the detection phase [e-]'
             xlabel_str='ACT'
             ylabel_str='ALT'
-            plotMat2D(toa, title_str, xlabel_str, ylabel_str, self.outdir, saveas_str)
+            # plotMat2D(toa, title_str, xlabel_str, ylabel_str, self.outdir, saveas_str)
 
             idalt = int(toa.shape[0]/2)
             saveas_str = saveas_str + '_alt' + str(idalt)
@@ -105,6 +105,18 @@ class detectionPhase(initIsm):
         :return: Toa in photons
         """
         #TODO
+        h= self.constants.h_planck
+        c= self.constants.speed_light
+        toa_w = toa * 1e-3
+        # 1. Incident energy on the detector
+        Ein = toa * area_pix * tint
+
+        # 2. Energy of one photon
+        Ephoton = h * c / wv
+
+        # 3. Number of photons
+        toa_ph = Ein / Ephoton
+
         return toa_ph
 
     def phot2Electr(self, toa, QE):
@@ -115,6 +127,10 @@ class detectionPhase(initIsm):
         :return: toa in electrons
         """
         #TODO
+        # Convert photons to electrons
+        toae = toa * QE
+        # Limit the number of electrons to the Full Well Capacity
+        # toae[toae > self.ismConfig.FWC] = self.ismConfig.FWC
         return toae
 
     def badDeadPixels(self, toa,bad_pix,dead_pix,bad_pix_red,dead_pix_red):
@@ -128,6 +144,101 @@ class detectionPhase(initIsm):
         :return: toa in e- including bad & dead pixels
         """
         #TODO
+        # Number of pixels in ACT direction
+        toa_act = toa.shape[1]
+
+        # --------------------------------------------------------
+        # Number of bad and dead pixels
+        # Use int(), as indicated in the ATBD
+        # --------------------------------------------------------
+
+        n_bad = int(toa_act * bad_pix / 100.0)
+        n_dead = int(toa_act * dead_pix / 100.0)
+
+        # --------------------------------------------------------
+        # BAD PIXELS
+        # --------------------------------------------------------
+
+        if n_bad > 0:
+
+            step_bad = int(toa_act / n_bad)
+
+            idx_bad = list(
+                range(
+                    5,
+                    toa_act,
+                    step_bad
+                )
+            )
+
+            # Keep only the requested number of bad pixels
+            idx_bad = idx_bad[:n_bad]
+
+            # Reduce signal in all ALT lines
+            toa[:, idx_bad] = (
+                    toa[:, idx_bad]
+                    * (1.0 - bad_pix_red)
+            )
+
+        else:
+            idx_bad = []
+
+        # --------------------------------------------------------
+        # DEAD PIXELS
+        # --------------------------------------------------------
+
+        if n_dead > 0:
+
+            step_dead = int(toa_act / n_dead)
+
+            idx_dead = list(
+                range(
+                    0,
+                    toa_act,
+                    step_dead
+                )
+            )
+
+            # Keep only the requested number of dead pixels
+            idx_dead = idx_dead[:n_dead]
+
+            # Reduce signal in all ALT lines
+            toa[:, idx_dead] = (
+                    toa[:, idx_dead]
+                    * (1.0 - dead_pix_red)
+            )
+
+        else:
+            idx_dead = []
+
+        # --------------------------------------------------------
+        # Save indexes for validation
+        # --------------------------------------------------------
+
+        np.savetxt(
+            self.outdir + "/bad_pixels.txt",
+            np.array(idx_bad, dtype=int),
+            fmt="%d"
+        )
+
+        np.savetxt(
+            self.outdir + "/dead_pixels.txt",
+            np.array(idx_dead, dtype=int),
+            fmt="%d"
+        )
+
+        # --------------------------------------------------------
+        # Debug information
+        # --------------------------------------------------------
+
+        self.logger.debug(
+            "Bad pixel indexes: " + str(idx_bad)
+        )
+
+        self.logger.debug(
+            "Dead pixel indexes: " + str(idx_dead)
+        )
+
         return toa
 
     def prnu(self, toa, kprnu):
@@ -138,6 +249,19 @@ class detectionPhase(initIsm):
         :return: TOA after adding PRNU [e-]
         """
         #TODO
+        # Number of ACT pixels
+        ncolumns = toa.shape[1]
+        # PRNU is generated once per ACT pixel
+        # and is time-invariant
+        prnu = np.random.normal(
+            loc=0.0,
+            scale=1.0,
+            size=ncolumns
+        ) * kprnu
+
+        # Apply the same PRNU pattern to all ALT lines
+        toa_prnu = toa * (1.0 + prnu)
+
         return toa
 
 
@@ -153,4 +277,38 @@ class detectionPhase(initIsm):
         :return: TOA in [e-] with dark signal
         """
         #TODO
+
+        # Number of ACT pixels
+        ncolumns = toa.shape[1]
+
+        # --------------------------------------------------------
+        # 1. Dark Signal Non-Uniformity (DSNU)
+        # --------------------------------------------------------
+
+        dsnu = np.abs(
+            np.random.normal(
+                loc=0.0,
+                scale=1.0,
+                size=ncolumns
+            ) * kdsnu
+        )
+
+        # --------------------------------------------------------
+        # 2. Constant temperature-dependent Dark Signal
+        # --------------------------------------------------------
+
+        Sd = (
+                ds_A_coeff
+                * (T / Tref) ** 3
+                * np.exp(
+            -ds_B_coeff
+            * (
+                    (1.0 / T)
+                    - (1.0 / Tref)
+            )
+        )
+        )
+
+        DS = Sd * (1.0 + dsnu)
+        toa = toa + DS
         return toa

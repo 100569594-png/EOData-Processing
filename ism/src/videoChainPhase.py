@@ -1,4 +1,3 @@
-
 from ism.src.initIsm import initIsm
 import numpy as np
 from common.plot.plotMat2D import plotMat2D
@@ -6,8 +5,8 @@ from common.plot.plotF import plotF
 
 class videoChainPhase(initIsm):
 
-    def __init__(self, auxdir, indir, outdir):
-        super().__init__(auxdir, indir, outdir)
+    def _init_(self, auxdir, indir, outdir):
+        super()._init_(auxdir, indir, outdir)
 
     def compute(self, toa, band):
         self.logger.info("EODP-ALG-ISM-3000: Video Chain")
@@ -56,6 +55,7 @@ class videoChainPhase(initIsm):
         :return: output toa in [V]
         """
         #TODO
+        toa = toa * OCF * gain_adc
         return toa
 
     def digitisation(self, toa, bit_depth, min_voltage, max_voltage):
@@ -68,5 +68,13 @@ class videoChainPhase(initIsm):
         :return: toa in digital counts
         """
         #TODO
-        return toa_dn
+        #Maximum digital value
+        max_dn = 2 ** bit_depth - 1
 
+        #Convert voltage to digital counts
+        toa_dn = np.round(toa / (max_voltage - min_voltage) * max_dn)
+
+        # Saturation
+        toa_dn[toa_dn > max_dn] = max_dn
+        toa_dn[toa_dn < 0] = 0
+        return toa_dn
