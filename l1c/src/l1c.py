@@ -10,7 +10,6 @@ from scipy.interpolate import bisplrep, bisplev
 import matplotlib.pyplot as plt
 from common.io.l1cProduct import writeL1c
 from matplotlib import cm
-
 class l1c(initL1c):
 
     def __init__(self, auxdir, indir, outdir):
@@ -24,19 +23,40 @@ class l1c(initL1c):
 
             self.logger.info("Start of BAND " + band)
 
-            # Read TOA - output of the L1B in Radiances
-            # -------------------------------------------------------------------------------
-            toa = readToa(self.l1bdir, self.globalConfig.l1b_toa + band + '.nc')
-            lat,lon = readGeodetic(self.gmdir, self.globalConfig.gm_geoloc)
-            self.checkSize(lat,toa)
+            toa = readToa(
+                self.l1bdir,
+                self.globalConfig.l1b_toa + band + '.nc'
+            )
 
-            # L1C reprojection onto the MGRS grid
-            # -------------------------------------------------------------------------------
-            lat_l1c, lon_l1c, toa_l1c = self.l1cProjtoa(lat, lon, toa, band)
+            lat, lon = readGeodetic(
+                self.gmdir,
+                self.globalConfig.gm_geoloc
+            )
 
-            # Write output TOA
-            # -------------------------------------------------------------------------------
-            writeL1c(self.outdir, self.globalConfig.l1c_toa + band, lat_l1c, lon_l1c, toa_l1c)
+            self.checkSize(lat, toa)
+
+            lat_l1c, lon_l1c, toa_l1c = self.l1cProjtoa(
+                lat,
+                lon,
+                toa,
+                band
+            )
+
+            self.plotL1bVsL1cGrid(
+                lat,
+                lon,
+                lat_l1c,
+                lon_l1c,
+                band
+            )
+
+            writeL1c(
+                self.outdir,
+                self.globalConfig.l1c_toa + band,
+                lat_l1c,
+                lon_l1c,
+                toa_l1c
+            )
 
             self.logger.info("End of BAND " + band)
 
@@ -44,33 +64,121 @@ class l1c(initL1c):
 
 
     def l1cProjtoa(self, lat, lon, toa, band):
-        '''
-        This function reprojects the L1B radiances into the MGRS grid.
 
-        The MGRS reference system
-        https://www.bluemarblegeo.com/knowledgebase/calculator-2020/Military_Grid_Reference_System_(MGRS).htm
-        MGRS: '31REQ4367374067'
-        31 is the UTM zone, R is the UTM latitude band; EQ are the MGRS column and row band letters
-        43673 is the MGRS Easting (5 dig); 74067 is the MGRS Northing (5dig)
+        tck = bisplrep(
+            lat.flatten(),
+            lon.flatten(),
+            toa.flatten()
+        )
 
-        Python mgrs library documentation
-        https://pypi.org/project/mgrs/
+        m = mgrs.MGRS()
 
-        :param lat: L1B latitudes [deg]
-        :param lon: L1B longitudes [deg]
-        :param toa: L1B radiances
-        :param band: band
-        :return: L1C radiances, L1C latitude and longitude in degrees
-        '''
-        #TODO
+        mgrs_tiles = set([])
+
+        for ii in range(toa.shape[0]):
+            for jj in range(toa.shape[1]):
+
+                auxi = m.toMGRS(
+                    lat[ii, jj],
+                    lon[ii, jj],
+                    MGRSPrecision=self.l1cConfig.mgrs_tile_precision
+                )
+
+                mgrs_tiles.add(auxi)
+
+        mgrs_tiles = list(mgrs_tiles)
+
+        toa_l1c = np.zeros(len(mgrs_tiles))
+        lat_l1c = np.zeros(len(mgrs_tiles))
+        lon_l1c = np.zeros(len(mgrs_tiles))
+
+        for ii in range(len(mgrs_tiles)):
+
+            lat_l1c[ii], lon_l1c[ii] = m.toLatLon(
+                mgrs_tiles[ii]
+            )
+
+            toa_l1c[ii] = bisplev(
+                lat_l1c[ii],
+                lon_l1c[ii],
+                tck
+            )
+
         return lat_l1c, lon_l1c, toa_l1c
 
-    def checkSize(self, lat,toa):
-        '''
-        Check the sizes of the input radiances and geodetic coordinates.
-        If they don't match, exit.
-        :param lat: Latitude 2D matrix
-        :param toa: Radiance 2D matrix
-        :return: NA
-        '''
-        #TODO
+
+    def checkSize(self, lat, toa):
+
+        if lat.shape != toa.shape:
+
+            raise ValueError(
+                "Latitude and TOA dimensions do not match: "
+                + str(lat.shape)
+                + " vs "
+                + str(toa.shape)
+            )
+
+
+    def plotL1bVsL1cGrid(
+        self,
+        lat,
+        lon,
+        lat_l1c,
+        lon_l1c,
+        band
+    ):
+
+        plt.figure(
+            figsize=(10, 8)
+        )
+
+        # L1B grid - red
+        plt.scatter(
+            lon.flatten(),
+            lat.flatten(),
+            s=6,
+            c="red",
+            label="L1B grid"
+        )
+
+        # L1C grid - blue
+        plt.scatter(
+            lon_l1c,
+            lat_l1c,
+            s=10,
+            c="blue",
+            label="L1C MGRS grid"
+        )
+
+        plt.title(
+            "L1B grid vs L1C grid - " + band
+        )
+
+        plt.xlabel(
+            "Longitude [deg]"
+        )
+
+        plt.ylabel(
+            "Latitude [deg]"
+        )
+
+        plt.grid(True)
+
+        plt.legend()
+
+        plt.tight_layout()
+
+        filename = (
+            self.outdir
+            + "/l1b_vs_l1c_grid_"
+            + band
+            + ".png"
+        )
+
+        plt.savefig(
+            filename,
+            dpi=200,
+            bbox_inches="tight"
+        )
+
+        plt.close()
