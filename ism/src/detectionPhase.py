@@ -105,16 +105,15 @@ class detectionPhase(initIsm):
         :return: Toa in photons
         """
         #TODO
-        h= self.constants.h_planck
-        c= self.constants.speed_light
-        toa_w = toa * 1e-3
-        # 1. Incident energy on the detector
-        Ein = toa * area_pix * tint
+        h = self.constants.h_planck
+        c = self.constants.speed_light
 
-        # 2. Energy of one photon
+        toa_w = toa * 1e-3
+
+        Ein = toa_w * area_pix * tint
+
         Ephoton = h * c / wv
 
-        # 3. Number of photons
         toa_ph = Ein / Ephoton
 
         return toa_ph
@@ -129,8 +128,11 @@ class detectionPhase(initIsm):
         #TODO
         # Convert photons to electrons
         toae = toa * QE
-        # Limit the number of electrons to the Full Well Capacity
-        # toae[toae > self.ismConfig.FWC] = self.ismConfig.FWC
+        toae = np.clip(
+            toae,
+            0,
+            self.ismConfig.FWC
+        )
         return toae
 
     def badDeadPixels(self, toa,bad_pix,dead_pix,bad_pix_red,dead_pix_red):
@@ -262,7 +264,7 @@ class detectionPhase(initIsm):
         # Apply the same PRNU pattern to all ALT lines
         toa_prnu = toa * (1.0 + prnu)
 
-        return toa
+        return toa_prnu
 
 
     def darkSignal(self, toa, kdsnu, T, Tref, ds_A_coeff, ds_B_coeff):

@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from scipy.special import j1
 from numpy.matlib import repmat
 from common.io.readMat import writeMat
+from pathlib import Path
+from netCDF4 import Dataset
 from common.plot.plotMat2D import plotMat2D
 from scipy.interpolate import interp2d
 from numpy.fft import fftshift, ifft2
@@ -71,6 +73,31 @@ class mtf:
         self.logger.debug("Calculation of the Sysmtem MTF by multiplying the different contributors")
         Hsys = Hdiff * Hwfe * Hdefoc * Hdet * Hsmear * Hmotion # dummy
 
+
+        mtf_outputs = {
+            "Hdiff": Hdiff,
+            "Hdefoc": Hdefoc,
+            "Hwfe": Hwfe,
+            "Hdet": Hdet,
+            "Hsmear": Hsmear,
+            "Hmotion": Hmotion,
+            "Hsys": Hsys
+        }
+
+        for name, matrix in mtf_outputs.items():
+            filename = Path(self.outdir) / f"{name}_{band}.nc"
+
+            with Dataset(filename, "w") as nc:
+                nc.createDimension("ALT", matrix.shape[0])
+                nc.createDimension("ACT", matrix.shape[1])
+
+                variable = nc.createVariable(
+                    name,
+                    "f8",
+                    ("ALT", "ACT")
+                )
+
+                variable[:] = matrix
         # Plot cuts ACT/ALT of the MTF
         self.plotMtf(Hdiff, Hdefoc, Hwfe, Hdet, Hsmear, Hmotion, Hsys, nlines, ncolumns, fnAct, fnAlt, directory, band)
 
@@ -134,7 +161,15 @@ class mtf:
         """
         #TODO
         x = np.pi * defocus * fr2D * (1 - fr2D)
-        Hdefoc = 2 * j1(x) / x
+
+        Hdefoc = np.ones_like(x, dtype=float)
+
+        np.divide(
+            2 * j1(x),
+            x,
+            out=Hdefoc,
+            where=np.abs(x) > 1e-12
+        )
 
         return Hdefoc
 

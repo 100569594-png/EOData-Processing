@@ -13,8 +13,9 @@ from common.src.auxFunc import getIndexBand
 
 class opticalPhase(initIsm):
 
-    def _init_(self, auxdir, indir, outdir):
-        super()._init_(auxdir, indir, outdir)
+
+    def __init__(self, auxdir, indir, outdir):
+        super().__init__(auxdir, indir, outdir)
 
     def compute(self, sgm_toa, sgm_wv, band):
         """
@@ -95,29 +96,15 @@ class opticalPhase(initIsm):
         toa = Tr * toa * (pi / 4) * (D / f) ** 2
         return toa
 
-
     def applySysMtf(self, toa, Hsys):
-        """
-        Application of the system MTF to the TOA
-        :param toa: Input TOA image in irradiances [mW/m2]
-        :param Hsys: System MTF
-        :return: TOA image in irradiances [mW/m2]
-        """
-        # TODO
 
-        # Fourier transform of the input TOA
         GE = fft2(toa)
 
-        # Shift the system MTF and apply it in the frequency domain
-        toa_ft = GE * fftshift(Hsys)
+        toa_ft = GE * np.fft.ifftshift(Hsys)
 
-        # Back to the spatial domain
-        toa_ft = ifft2(toa_ft)
+        toa_filtered = ifft2(toa_ft)
 
-        # Imaginary part should be negligible
-        toa_ft = np.real(toa_ft)
-        return toa_ft
-        return toa_ft
+        return np.real(toa_filtered)
 
     def spectralIntegration(self, sgm_toa, sgm_wv, band):
         """
