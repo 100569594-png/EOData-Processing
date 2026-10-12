@@ -73,9 +73,14 @@ class l1b(initL1b):
         :return: TOA in radiances [mW/sr/m2]
         """
         #TODO
-        self.logger.debug('Sanity check. TOA in radiances after gain application ' + str(toa[1,-1]) + ' [mW/m2/sr]')
+        toa_l1b = toa * gain
 
-        return toa*gain
+        self.logger.debug(
+            "Sanity check. TOA in radiances after gain application "
+            + str(toa_l1b[1, -1]) + " [mW/m2/sr]"
+        )
+
+        return toa_l1b
 
     def plotL1bToa(self, toa_l1b, outputdir, band):
         #TODO
